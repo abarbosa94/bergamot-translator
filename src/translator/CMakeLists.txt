@@ -11,6 +11,7 @@ add_library(bergamot-translator STATIC
     batch.cpp
     sentence_ranges.cpp
     service.cpp
+    MarianInterface.cpp
 )
 if (USE_WASM_COMPATIBLE_SOURCE)
   # Using wasm compatible sources should include this compile definition;
