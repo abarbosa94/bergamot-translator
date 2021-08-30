@@ -1,0 +1,34 @@
+name: MacOS
+
+on:
+  push:
+    branches: [ ci-custom-marian ]
+  pull_request:
+    branches: [ ci-custom-marian ]
+
+jobs:
+  build-macos:
+    name: MacOS CPU-only (Special Marian)
+    runs-on: macos-10.15
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: brew install protobuf
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build-with-special-marian-native
+        cd build-with-special-marian-native
+        cmake -DUSE_WASM_COMPATIBLE_MARIAN=on ..
+    - name: Compile
+      working-directory: build-with-special-marian-native
+      run: make -j2
+
+    - name: Print versions
+      working-directory: build-with-special-marian-native
+      run: ./app/bergamot-translator-app --version
