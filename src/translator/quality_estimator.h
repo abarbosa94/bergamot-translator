@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "annotation.h"
@@ -51,16 +52,19 @@ constexpr std::size_t BINARY_QE_MODEL_MAGIC = 0x78cc336f1d54b180;
 /// These variables are firstly initialized by parsing a file (which comes from memory),
 /// and then they are used to build a model representation
 ///
+
 class LogisticRegressorQualityEstimator : public QualityEstimator {
  public:
+  using Array = std::array<float, /*LRParamsDims = */ 4>;
+
   struct Header {
     uint64_t magic;             // BINARY_QE_MODEL_MAGIC
     uint64_t lrParametersDims;  // Length of lr parameters stds, means and coefficients .
   };
 
   struct Scale {
-    std::vector<float> stds;
-    std::vector<float> means;
+    Array stds;
+    Array means;
   };
 
   class Matrix {
@@ -78,7 +82,7 @@ class LogisticRegressorQualityEstimator : public QualityEstimator {
     std::vector<float> data_;
   };
 
-  LogisticRegressorQualityEstimator(Scale &&scale, std::vector<float> &&coefficients, const float intercept);
+  LogisticRegressorQualityEstimator(Scale &&scale, Array &&coefficients, const float intercept);
 
   LogisticRegressorQualityEstimator(LogisticRegressorQualityEstimator &&other);
 
@@ -96,9 +100,9 @@ class LogisticRegressorQualityEstimator : public QualityEstimator {
 
  private:
   Scale scale_;
-  std::vector<float> coefficients_;
+  Array coefficients_;
   float intercept_;
-  std::vector<float> coefficientsByStds_;
+  Array coefficientsByStds_;
   float constantFactor_ = 0.0;
 
   std::vector<float> predict(const Matrix &features) const;
