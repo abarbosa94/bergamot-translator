@@ -6,7 +6,7 @@ void UnsupervisedQualityEstimator::computeQualityScores(const Histories& histori
   size_t sentenceIndex = 0;
 
   for (const auto& history : histories) {
-    const auto logProbs = std::get<1>(history->top())->tracebackWordScores();
+    const std::vector<float> logProbs = std::get<1>(history->top())->tracebackWordScores();
     response.qualityScores.push_back(computeSentenceScores(logProbs, response.target, sentenceIndex));
     ++sentenceIndex;
   }
@@ -173,7 +173,7 @@ void LogisticRegressorQualityEstimator::computeQualityScores(const Histories& hi
   size_t sentenceIndex = 0;
 
   for (const auto& history : histories) {
-    const auto logProbs = std::get<1>(history->top())->tracebackWordScores();
+    const std::vector<float> logProbs = std::get<1>(history->top())->tracebackWordScores();
     response.qualityScores.push_back(computeSentenceScores(logProbs, response.target, sentenceIndex));
 
     ++sentenceIndex;
@@ -298,8 +298,8 @@ std::vector<ByteRange> subwordToWords(const std::vector<WordIndex>& wordIndexes,
   std::vector<ByteRange> words;
 
   for (const auto& wordIndex : wordIndexes) {
-    auto wordBegin = target.wordAsByteRange(sentenceIdx, wordIndex.begin).begin;
-    auto wordEnd = target.wordAsByteRange(sentenceIdx, wordIndex.end).begin;
+    size_t wordBegin = target.wordAsByteRange(sentenceIdx, wordIndex.begin).begin;
+    size_t wordEnd = target.wordAsByteRange(sentenceIdx, wordIndex.end).begin;
 
     if (isspace(target.text.at(wordBegin))) {
       ++wordBegin;
