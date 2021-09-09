@@ -1,15 +1,15 @@
 # Generate version file
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/project_version.h.in
-               ${CMAKE_CURRENT_SOURCE_DIR}/project_version.h @ONLY)
+               ${CMAKE_CURRENT_BINARY_DIR}/project_version.h @ONLY)
 
 add_library(bergamot-translator STATIC
     byte_array_util.cpp
     text_processor.cpp
-    sentence_splitter.cpp
     batch_translator.cpp 
     request.cpp 
     batcher.cpp
     response_builder.cpp
+    quality_estimator.cpp
     batch.cpp
     annotation.cpp
     service.cpp

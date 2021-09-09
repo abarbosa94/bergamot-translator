@@ -1,7 +1,10 @@
 #ifndef SRC_BERGAMOT_RESPONSE_BUILDER_H_
 #define SRC_BERGAMOT_RESPONSE_BUILDER_H_
 
+#include <optional>
+
 #include "data/types.h"
+#include "quality_estimator.h"
 #include "response.h"
 #include "response_options.h"
 #include "vocabs.h"
@@ -23,10 +26,16 @@ class ResponseBuilder {
   /// @param [in] responseOptions: ResponseOptions, indicating what to include
   /// or not in the response and any additional configurable parameters.
   /// @param [in] vocabs: marian vocab object (used in decoding)
-  /// @param [in] promise: promise to set with the constructed Response.
+  /// @param [in] callback: callback with operates on the constructed Response.
+  /// @param [in] qualityEstimator: the QualityEstimator model that can be used
+  /// to provide translation quality probability.
   ResponseBuilder(ResponseOptions responseOptions, AnnotatedText &&source, Vocabs &vocabs,
-                  std::promise<Response> &&promise)
-      : responseOptions_(responseOptions), source_(std::move(source)), vocabs_(vocabs), promise_(std::move(promise)) {}
+                  std::function<void(Response &&)> callback, const QualityEstimator &qualityEstimator)
+      : responseOptions_(responseOptions),
+        source_(std::move(source)),
+        vocabs_(vocabs),
+        callback_(std::move(callback)),
+        qualityEstimator_(qualityEstimator) {}
 
   /// Constructs and sets the promise of a Response object from obtained
   /// histories after translating.
@@ -54,8 +63,7 @@ class ResponseBuilder {
       buildAlignments(histories, response);
     }
 
-    // Once complete, set promise.
-    promise_.set_value(std::move(response));
+    callback_(std::move(response));
   }
 
  private:
@@ -79,11 +87,13 @@ class ResponseBuilder {
   // Data members are context/curried args for the functor.
 
   ResponseOptions responseOptions_;
-  const Vocabs &vocabs_;            // vocabs are required for decoding
-                                    // and any source validation checks.
-  std::promise<Response> promise_;  //  To be set when callback triggered and
-                                    //  after Response constructed.
+  const Vocabs &vocabs_;                       // vocabs are required for decoding
+                                               // and any source validation checks.
+  std::function<void(Response &&)> callback_;  //  To be set when callback triggered and
+                                               //  after Response constructed.
   AnnotatedText source_;
+
+  const QualityEstimator &qualityEstimator_;
 };
 }  // namespace bergamot
 }  // namespace marian

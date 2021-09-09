@@ -1,9 +1,9 @@
 #include "byte_array_util.h"
 
-#include <stdlib.h>
-
-#include <iostream>
+#include <cstdlib>
 #include <memory>
+
+#include "data/shortlist.h"
 
 namespace marian {
 namespace bergamot {
@@ -102,6 +102,8 @@ AlignedMemory getModelMemoryFromConfig(marian::Ptr<marian::Options> options) {
 AlignedMemory getShortlistMemoryFromConfig(marian::Ptr<marian::Options> options) {
   auto shortlist = options->get<std::vector<std::string>>("shortlist");
   ABORT_IF(shortlist.empty(), "No path to shortlist file is given.");
+  ABORT_IF(!marian::data::isBinaryShortlist(shortlist[0]),
+           "Loading non-binary shortlist file into memory is not supported");
   return loadFileToMemory(shortlist[0], 64);
 }
 
@@ -112,6 +114,8 @@ void getVocabsMemoryFromConfig(marian::Ptr<marian::Options> options,
   vocabMemories.resize(vfiles.size());
   std::unordered_map<std::string, std::shared_ptr<AlignedMemory>> vocabMap;
   for (size_t i = 0; i < vfiles.size(); ++i) {
+    ABORT_IF(marian::filesystem::Path(vfiles[i]).extension() != marian::filesystem::Path(".spm"),
+             "Loading non-SentencePiece vocab files into memory is not supported");
     auto m = vocabMap.emplace(std::make_pair(vfiles[i], std::shared_ptr<AlignedMemory>()));
     if (m.second) {
       m.first->second = std::make_shared<AlignedMemory>(loadFileToMemory(vfiles[i], 64));
@@ -120,12 +124,40 @@ void getVocabsMemoryFromConfig(marian::Ptr<marian::Options> options,
   }
 }
 
+AlignedMemory getQualityEstimatorModel(const marian::Ptr<marian::Options>& options) {
+  const auto qualityEstimatorPath = options->get<std::string>("quality", "");
+  if (qualityEstimatorPath.empty()) {
+    return {};
+  }
+  return loadFileToMemory(qualityEstimatorPath, 64);
+}
+
+AlignedMemory getQualityEstimatorModel(MemoryBundle& memoryBundle, const marian::Ptr<marian::Options>& options) {
+  if (memoryBundle.qualityEstimatorMemory.size() == 0) {
+    return getQualityEstimatorModel(options);
+  }
+
+  return std::move(memoryBundle.qualityEstimatorMemory);
+}
+
 MemoryBundle getMemoryBundleFromConfig(marian::Ptr<marian::Options> options) {
   MemoryBundle memoryBundle;
   memoryBundle.model = getModelMemoryFromConfig(options);
   memoryBundle.shortlist = getShortlistMemoryFromConfig(options);
   getVocabsMemoryFromConfig(options, memoryBundle.vocabs);
+  memoryBundle.ssplitPrefixFile = getSsplitPrefixFileMemoryFromConfig(options);
+  memoryBundle.qualityEstimatorMemory = getQualityEstimatorModel(options);
+
   return memoryBundle;
+}
+
+AlignedMemory getSsplitPrefixFileMemoryFromConfig(marian::Ptr<marian::Options> options) {
+  std::string fpath = options->get<std::string>("ssplit-prefix-file", "");
+  if (!fpath.empty()) {
+    return loadFileToMemory(fpath, 64);
+  }
+  // Return empty AlignedMemory
+  return AlignedMemory();
 }
 
 }  // namespace bergamot

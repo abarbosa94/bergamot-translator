@@ -37,7 +37,7 @@ release = version + ' ' + str(datetime.date.today())
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.imgmath',
+    'sphinx.ext.mathjax',
     'sphinx.ext.todo',
     'breathe',
     'exhale',
@@ -82,7 +82,7 @@ breathe_projects = { 'bergamot-translator': './doxygen/xml' }
 breathe_default_project = 'bergamot-translator'
 
 doxygen_config = """
-INPUT                = ../src
+INPUT                = ../src ../app
 EXCLUDE             += ../3rd_party
 EXCLUDE             += ../src/tests
 EXCLUDE_PATTERNS     = *.md *.txt

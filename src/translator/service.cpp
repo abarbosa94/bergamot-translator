@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "batch.h"
+#include "byte_array_util.h"
 #include "definitions.h"
 
 namespace marian {
@@ -13,11 +14,12 @@ Service::Service(Ptr<Options> options, MemoryBundle memoryBundle)
     : requestId_(0),
       options_(options),
       vocabs_(options, std::move(memoryBundle.vocabs)),
-      text_processor_(vocabs_, options),
+      text_processor_(options, vocabs_, std::move(memoryBundle.ssplitPrefixFile)),
       batcher_(options),
       numWorkers_(std::max<int>(1, options->get<int>("cpu-threads"))),
       modelMemory_(std::move(memoryBundle.model)),
-      shortlistMemory_(std::move(memoryBundle.shortlist))
+      shortlistMemory_(std::move(memoryBundle.shortlist)),
+      qualityEstimator_(createQualityEstimator(getQualityEstimatorModel(memoryBundle, options)))
 #ifdef WASM_COMPATIBLE_SOURCE
       ,
       blocking_translator_(DeviceId(0, DeviceType::cpu), vocabs_, options_, &modelMemory_, &shortlistMemory_)
@@ -42,59 +44,44 @@ Service::Service(Ptr<Options> options, MemoryBundle memoryBundle)
 #endif
 }
 
-void Service::blockIfWASM() {
 #ifdef WASM_COMPATIBLE_SOURCE
+std::vector<Response> Service::translateMultiple(std::vector<std::string> &&inputs, ResponseOptions responseOptions) {
+  // We queue the individual Requests so they get compiled at batches to be
+  // efficiently translated.
+  std::vector<Response> responses;
+  responses.resize(inputs.size());
+
+  for (size_t i = 0; i < inputs.size(); i++) {
+    auto callback = [i, &responses](Response &&response) { responses[i] = std::move(response); };  //
+    queueRequest(std::move(inputs[i]), std::move(callback), responseOptions);
+  }
+
   Batch batch;
   // There's no need to do shutdown here because it's single threaded.
   while (batcher_ >> batch) {
     blocking_translator_.translate(batch);
   }
-#endif
-}
-
-std::vector<Response> Service::translateMultiple(std::vector<std::string> &&inputs, ResponseOptions responseOptions) {
-  // We queue the individual Requests so they get compiled at batches to be
-  // efficiently translated.
-  std::vector<std::future<Response>> responseFutures;
-  for (auto &input : inputs) {
-    std::future<Response> inputResponse = queueRequest(std::move(input), responseOptions);
-    responseFutures.push_back(std::move(inputResponse));
-  }
-
-  // Dispatch is called once per request so compilation of sentences from
-  // multiple Requests happen.
-  blockIfWASM();
-
-  // Now wait for all Requests to complete, the future to fire and return the
-  // compiled Responses, we can probably return the future, but WASM quirks(?).
-  std::vector<Response> responses;
-  for (auto &future : responseFutures) {
-    future.wait();
-    responses.push_back(std::move(future.get()));
-  }
 
   return responses;
 }
+#endif
 
-std::future<Response> Service::queueRequest(std::string &&input, ResponseOptions responseOptions) {
+void Service::queueRequest(std::string &&input, std::function<void(Response &&)> &&callback,
+                           ResponseOptions responseOptions) {
   Segments segments;
-  AnnotatedText source(std::move(input));
-  text_processor_.process(source, segments);
+  AnnotatedText source;
 
-  std::promise<Response> responsePromise;
-  auto future = responsePromise.get_future();
+  text_processor_.process(std::move(input), source, segments);
 
-  ResponseBuilder responseBuilder(responseOptions, std::move(source), vocabs_, std::move(responsePromise));
+  ResponseBuilder responseBuilder(responseOptions, std::move(source), vocabs_, std::move(callback), *qualityEstimator_);
   Ptr<Request> request = New<Request>(requestId_++, std::move(segments), std::move(responseBuilder));
 
   batcher_.addWholeRequest(request);
-  return future;
 }
 
-std::future<Response> Service::translate(std::string &&input, ResponseOptions responseOptions) {
-  std::future<Response> future = queueRequest(std::move(input), responseOptions);
-  blockIfWASM();
-  return future;
+void Service::translate(std::string &&input, std::function<void(Response &&)> &&callback,
+                        ResponseOptions responseOptions) {
+  queueRequest(std::move(input), std::move(callback), responseOptions);
 }
 
 Service::~Service() {

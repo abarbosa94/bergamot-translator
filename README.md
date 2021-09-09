@@ -13,7 +13,7 @@ Create a folder where you want to build all the artifacts (`build-native` in thi
 mkdir build-native
 cd build-native
 cmake ../
-make -j3
+make -j2
 ```
 
 ### Build WASM
@@ -23,26 +23,38 @@ Building on wasm requires Emscripten toolchain. It can be downloaded and install
 
 * Get the latest sdk: `git clone https://github.com/emscripten-core/emsdk.git`
 * Enter the cloned directory: `cd emsdk`
-* Install the lastest sdk tools: `./emsdk install latest`
-* Activate the latest sdk tools: `./emsdk activate latest`
+* Install the lastest sdk tools: `./emsdk install 2.0.9`
+* Activate the latest sdk tools: `./emsdk activate 2.0.9`
 * Activate path variables: `source ./emsdk_env.sh`
 
 #### <a name="Compile"></a> Compile
 
-1. Create a folder where you want to build all the artifacts (`build-wasm` in this case) and compile
-    ```bash
-    mkdir build-wasm
-    cd build-wasm
-    emcmake cmake -DCOMPILE_WASM=on ../
-    emmake make -j3
-    ```
+To build a version that translates with higher speeds on Firefox Nightly browser, follow these instructions:
 
-    The wasm artifacts (.js and .wasm files) will be available in the build directory ("build-wasm" in this case).
+   1. Create a folder where you want to build all the artifacts (`build-wasm` in this case) and compile
+       ```bash
+       mkdir build-wasm
+       cd build-wasm
+       emcmake cmake -DCOMPILE_WASM=on ../
+       emmake make -j2
+       ```
 
-2. Enable SIMD Wormhole via Wasm instantiation API in generated artifacts
-    ```bash
-    bash ../wasm/patch-artifacts-enable-wormhole.sh
-    ```
+       The wasm artifacts (.js and .wasm files) will be available in the build directory ("build-wasm" in this case).
+
+   2. Enable SIMD Wormhole via Wasm instantiation API in generated artifacts
+       ```bash
+       bash ../wasm/patch-artifacts-enable-wormhole.sh
+       ```
+
+To build a version that runs on all browsers (including Firefox Nightly) but translates slowly, follow these instructions:
+
+  1. Create a folder where you want to build all the artifacts (`build-wasm` in this case) and compile
+      ```bash
+      mkdir build-wasm
+      cd build-wasm
+      emcmake cmake -DCOMPILE_WASM=on -DWORMHOLE=off ../
+      emmake make -j2
+      ```
 
 #### Recompiling
 As long as you don't update any submodule, just follow [Compile](#Compile) steps.\

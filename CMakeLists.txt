@@ -41,6 +41,9 @@ include(CMakeDependentOption)
 # Project specific cmake options
 option(COMPILE_WASM "Compile for WASM" OFF)
 cmake_dependent_option(USE_WASM_COMPATIBLE_SOURCE "Use wasm compatible sources" OFF "NOT COMPILE_WASM" ON)
+
+# WASM disables a million libraries, which also includes the unit test-library.
+cmake_dependent_option(COMPILE_UNIT_TESTS "Compile unit tests" OFF "USE_WASM_COMPATIBLE_SOURCE" ON)
 option(COMPILE_TESTS "Compile bergamot-tests" OFF)
 
 # Set 3rd party submodule specific cmake options for this project
@@ -84,9 +87,8 @@ endif()
 
 if(COMPILE_WASM)
   set(WORMHOLE ON CACHE BOOL "Use WASM wormhole in intgemm https://bugzilla.mozilla.org/show_bug.cgi?id=1672160")
-  list(APPEND WASM_COMPILE_FLAGS -pthread -O3 -g2 -fPIC -mssse3 -msimd128)
+  list(APPEND WASM_COMPILE_FLAGS -O3 -g2 -fPIC -mssse3 -msimd128)
   list(APPEND WASM_COMPILE_FLAGS "SHELL:-s WASM=1" "SHELL:-s ASSERTIONS=0" "SHELL:-s DISABLE_EXCEPTION_CATCHING=1" "SHELL:-s LLD_REPORT_UNDEFINED" "SHELL:-s FORCE_FILESYSTEM=1" "SHELL:-s ALLOW_MEMORY_GROWTH=1")
-  list(APPEND WASM_COMPILE_FLAGS -Wno-error=pthreads-mem-growth)
 endif(COMPILE_WASM)
 
 # Needs to be enabled before including the folder containing tests (src/tests)
